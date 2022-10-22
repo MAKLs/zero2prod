@@ -16,6 +16,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REPO_NAME: ${{ github.event.repository.name }}
+  COVERAGE_PATH: ./coverage
 
 jobs:
   lint:
@@ -65,11 +66,19 @@ jobs:
       - name: Test
         uses: actions-rs/tarpaulin@v0.1
         with:
-          out-type: Html
-          args: --skip-clean
+          args: >-
+            --skip-clean
+            --out Html
+            --out Xml
+            --output-dir ${{ env.COVERAGE_PATH }}
 
-      - name: Upload coverage
+      - name: Archive coverage artifacts
         uses: actions/upload-artifact@v3
         with:
           name: code-coverage-${{ env.REPO_NAME }}
-          path: tarpaulin-report.html
+          path: ${{ env.COVERAGE_PATH }}/**/*
+
+      - name: Upload coverage to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ${{ env.COVERAGE_PATH }}
