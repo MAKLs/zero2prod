@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 
 async fn greet(req: HttpRequest) -> impl Responder {
