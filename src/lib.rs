@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-mod configuration;
+pub mod configuration;
 mod routes;
 mod startup;
 
