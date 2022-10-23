@@ -22,7 +22,7 @@ watch:
     cargo watch -x run
 
 develop:
-    cargo watch -B 1 -w src -w tests -w configuration.yaml -w Cargo.toml -x check -x test -x run
+    cargo watch -w src -w tests -w configuration.yaml -w Cargo.toml -x check -x test -x run
 
 curl endpoint="/" port="8080":
     curl -i http://localhost:{{ port }}{{ endpoint }}
