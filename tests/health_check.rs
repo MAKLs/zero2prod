@@ -1,6 +1,8 @@
 use std::net::TcpListener;
 
 use reqwest::{header::CONTENT_TYPE, StatusCode};
+use sqlx::{Connection, PgConnection};
+use zero2prod::configuration::get_configuration;
 
 #[tokio::test]
 async fn health_check_works() {
@@ -26,9 +28,16 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn subscribe_returns_200_for_valid_form_data() {
+    // Setup
     let url = spawn_app();
+    let configuration = get_configuration().expect("should have gotten configuration");
+    let connection_string = configuration.database.connection_string();
+    let mut connection = PgConnection::connect(&connection_string)
+        .await
+        .expect("should have connected to database");
     let client = reqwest::Client::new();
 
+    // Make request
     let body = "name=le%20gui&email=ursula_le_guin%40gmail.com";
     let response = client
         .post(format!("{url}/subscriptions"))
@@ -38,11 +47,21 @@ async fn subscribe_returns_200_for_valid_form_data() {
         .await
         .expect("should have executed request");
 
+    // Assert response
     assert_eq!(
         StatusCode::OK,
         response.status(),
         "status code should be OK"
     );
+
+    // Assert mutations
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+        .fetch_one(&mut connection)
+        .await
+        .expect("should have fetched saved subscription");
+
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+    assert_eq!(saved.name, "le guin");
 }
 
 #[tokio::test]
