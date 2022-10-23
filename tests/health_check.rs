@@ -1,16 +1,41 @@
 use std::net::TcpListener;
 
 use reqwest::{header::CONTENT_TYPE, StatusCode};
-use sqlx::{Connection, PgConnection};
+use sqlx::PgPool;
 use zero2prod::configuration::get_configuration;
+
+pub struct TestApp {
+    pub address: String,
+    pub pool: PgPool,
+}
+
+async fn spawn_app() -> TestApp {
+    let address = "127.0.0.1";
+    let listener = TcpListener::bind((address, 0)).expect("listener should have bound");
+    let port = listener.local_addr().unwrap().port();
+    let address = format!("http://{address}:{port}");
+    let configuration = get_configuration().expect("should have gotten configuration");
+    let connection_pool = PgPool::connect(&configuration.database.connection_string())
+        .await
+        .expect("should have create connection pool");
+    let server = zero2prod::run_with_listener(listener, connection_pool.clone())
+        .expect("server should have started listening");
+
+    tokio::spawn(server);
+
+    TestApp {
+        address,
+        pool: connection_pool,
+    }
+}
 
 #[tokio::test]
 async fn health_check_works() {
-    let url = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let response = client
-        .get(format!("{url}/health"))
+        .get(format!("{}/health", app.address))
         .send()
         .await
         .expect("should have executed request");
@@ -29,18 +54,13 @@ async fn health_check_works() {
 #[tokio::test]
 async fn subscribe_returns_200_for_valid_form_data() {
     // Setup
-    let url = spawn_app();
-    let configuration = get_configuration().expect("should have gotten configuration");
-    let connection_string = configuration.database.connection_string();
-    let mut connection = PgConnection::connect(&connection_string)
-        .await
-        .expect("should have connected to database");
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     // Make request
     let body = "name=le%20gui&email=ursula_le_guin%40gmail.com";
     let response = client
-        .post(format!("{url}/subscriptions"))
+        .post(format!("{}/subscriptions", app.address))
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -56,7 +76,7 @@ async fn subscribe_returns_200_for_valid_form_data() {
 
     // Assert mutations
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&mut connection)
+        .fetch_one(&app.pool)
         .await
         .expect("should have fetched saved subscription");
 
@@ -66,7 +86,7 @@ async fn subscribe_returns_200_for_valid_form_data() {
 
 #[tokio::test]
 async fn subscribe_returns_400_when_data_is_missing() {
-    let url = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let cases = vec![
@@ -76,7 +96,7 @@ async fn subscribe_returns_400_when_data_is_missing() {
     ];
     for (body, reason) in cases {
         let response = client
-            .post(format!("{url}/subscriptions"))
+            .post(format!("{}/subscriptions", app.address))
             .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
             .body(body)
             .send()
@@ -89,16 +109,4 @@ async fn subscribe_returns_400_when_data_is_missing() {
             "status code should be 400 because {reason}"
         );
     }
-}
-
-fn spawn_app() -> String {
-    let addr = "127.0.0.1";
-    let listener = TcpListener::bind((addr, 0)).expect("listener should have bound");
-    let port = listener.local_addr().unwrap().port();
-    let server =
-        zero2prod::run_with_listener(listener).expect("server should have started listening");
-
-    tokio::spawn(server);
-
-    format!("http://{addr}:{port}")
 }
