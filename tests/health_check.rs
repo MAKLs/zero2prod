@@ -1,8 +1,9 @@
 use std::net::TcpListener;
 
 use reqwest::{header::CONTENT_TYPE, StatusCode};
-use sqlx::PgPool;
-use zero2prod::configuration::get_configuration;
+use sqlx::{Connection, Executor, PgConnection, PgPool};
+use uuid::Uuid;
+use zero2prod::configuration::{get_configuration, DatabaseSettings};
 
 pub struct TestApp {
     pub address: String,
@@ -14,10 +15,9 @@ async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind((address, 0)).expect("listener should have bound");
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://{address}:{port}");
-    let configuration = get_configuration().expect("should have gotten configuration");
-    let connection_pool = PgPool::connect(&configuration.database.connection_string())
-        .await
-        .expect("should have create connection pool");
+    let mut configuration = get_configuration().expect("should have gotten configuration");
+    configuration.database.database_name = Uuid::new_v4().to_string();
+    let connection_pool = configure_database(&configuration.database).await;
     let server = zero2prod::run_with_listener(listener, connection_pool.clone())
         .expect("server should have started listening");
 
@@ -27,6 +27,28 @@ async fn spawn_app() -> TestApp {
         address,
         pool: connection_pool,
     }
+}
+
+pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    // Create database
+    let mut connection = PgConnection::connect(&config.connection_string_without_db())
+        .await
+        .expect("should have connected to postgres");
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await
+        .expect("should have created database");
+
+    // Run migration
+    let connection_pool = PgPool::connect(&config.connection_string())
+        .await
+        .expect("should have created database pool");
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("should have run migrations");
+
+    connection_pool
 }
 
 #[tokio::test]
@@ -58,7 +80,7 @@ async fn subscribe_returns_200_for_valid_form_data() {
     let client = reqwest::Client::new();
 
     // Make request
-    let body = "name=le%20gui&email=ursula_le_guin%40gmail.com";
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
         .post(format!("{}/subscriptions", app.address))
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
@@ -90,7 +112,7 @@ async fn subscribe_returns_400_when_data_is_missing() {
     let client = reqwest::Client::new();
 
     let cases = vec![
-        ("name=le%20gui", "missing the email"),
+        ("name=le%20guin", "missing the email"),
         ("email=ursula_le_guin%40gmail.com", "missing the name"),
         ("", "missing both name and email"),
     ];
