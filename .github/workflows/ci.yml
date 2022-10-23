@@ -17,10 +17,23 @@ env:
   CARGO_TERM_COLOR: always
   REPO_NAME: ${{ github.event.repository.name }}
   COVERAGE_PATH: ./coverage
+  PG_TAG: postgres:15
+  PG_USER: postgres
+  PG_PASSWORD: postgres
+  PG_DB: postgres
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: ${{ env.PG_TAG }}
+        env:
+          POSTGRES_USER: ${{ env.PG_USER }}
+          POSTGRES_PASSWORD: ${{ env.PG_PASSWORD }}
+          POSTGRES_DB: ${{ env.PG_DB }}
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -41,6 +54,20 @@ jobs:
           command: fmt
           args: --check
 
+      - name: Install sqlx
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: >-
+            sqlx-cli
+            --no-default-features
+            --features rustls,postgres
+
+      - name: Migrate database
+        run: |
+          sudo apt-get install libpq-dev -y
+          ./scripts/init_db.sh --skip-docker
+
       - name: Lint
         uses: actions-rs/clippy-check@v1
         with:
@@ -49,6 +76,15 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: ${{ env.PG_TAG }}
+        env:
+          POSTGRES_USER: ${{ env.PG_USER }}
+          POSTGRES_PASSWORD: ${{ env.PG_PASSWORD }}
+          POSTGRES_DB: ${{ env.PG_DB }}
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -62,6 +98,20 @@ jobs:
 
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
+
+      - name: Install sqlx
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: >-
+            sqlx-cli
+            --no-default-features
+            --features rustls,postgres
+
+      - name: Migrate database
+        run: |
+          sudo apt-get install libpq-dev -y
+          ./scripts/init_db.sh --skip-docker
 
       - name: Test
         uses: actions-rs/tarpaulin@v0.1
