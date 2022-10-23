@@ -27,13 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: ${{ env.PG_TAG }}
+        image: postgres:15
         env:
-          POSTGRES_USER: ${{ env.PG_USER }}
-          POSTGRES_PASSWORD: ${{ env.PG_PASSWORD }}
-          POSTGRES_DB: ${{ env.PG_DB }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
+      options: >-
+        --health-cmd pg_isready
+        --health-interval 10s
+        --health-timeout 5s
+        --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -78,13 +84,19 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: ${{ env.PG_TAG }}
+        image: postgres:15
         env:
-          POSTGRES_USER: ${{ env.PG_USER }}
-          POSTGRES_PASSWORD: ${{ env.PG_PASSWORD }}
-          POSTGRES_DB: ${{ env.PG_DB }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
+      options: >-
+        --health-cmd pg_isready
+        --health-interval 10s
+        --health-timeout 5s
+        --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
