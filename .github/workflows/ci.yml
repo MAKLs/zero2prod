@@ -51,7 +51,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
         with:
-          cache-directories: ${{ env.CARGO_INSTALL_PATH }}
+          cache-directories: "${{ env.CARGO_INSTALL_PATH }}"
 
       - name: Format
         uses: actions-rs/cargo@v1
@@ -111,7 +111,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
         with:
-          cache-directories: ${{ env.CARGO_INSTALL_PATH }}
+          cache-directories: "${{ env.CARGO_INSTALL_PATH }}"
 
       - name: Install sqlx
         uses: actions-rs/cargo@v1
