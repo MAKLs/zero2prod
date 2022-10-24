@@ -10,8 +10,8 @@ on:
       - "**.rs"
 
   pull_request:
-    paths:
-      - "**.rs"
+    # paths:
+    #   - "**.rs"
 
 env:
   CARGO_TERM_COLOR: always
