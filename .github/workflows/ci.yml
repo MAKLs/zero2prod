@@ -17,6 +17,7 @@ env:
   CARGO_TERM_COLOR: always
   REPO_NAME: ${{ github.event.repository.name }}
   COVERAGE_PATH: ./coverage
+  CARGO_INSTALL_PATH: ./bin
 
 jobs:
   lint:
@@ -49,6 +50,8 @@ jobs:
 
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: ${{ env.CARGO_INSTALL_PATH }}
 
       - name: Format
         uses: actions-rs/cargo@v1
@@ -64,6 +67,7 @@ jobs:
             sqlx-cli
             --no-default-features
             --features rustls,postgres
+            --root ${{ env.CARGO_INSTALL_PATH }}
 
       - name: Migrate database
         run: |
@@ -106,6 +110,8 @@ jobs:
 
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: ${{ env.CARGO_INSTALL_PATH }}
 
       - name: Install sqlx
         uses: actions-rs/cargo@v1
@@ -115,6 +121,7 @@ jobs:
             sqlx-cli
             --no-default-features
             --features rustls,postgres
+            --root ${{ env.CARGO_INSTALL_PATH }}
 
       - name: Migrate database
         run: |
