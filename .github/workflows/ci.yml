@@ -17,7 +17,7 @@ env:
   CARGO_TERM_COLOR: always
   REPO_NAME: ${{ github.event.repository.name }}
   COVERAGE_PATH: ./coverage
-  CARGO_INSTALL_PATH: ./bin
+  CARGO_INSTALL_PATH: ./
 
 jobs:
   lint:
