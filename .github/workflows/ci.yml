@@ -50,6 +50,13 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Cache tools
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin
+          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin*') }}
+
       - name: Format
         uses: actions-rs/cargo@v1
         with:
@@ -106,6 +113,13 @@ jobs:
 
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
+
+      - name: Cache tools
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin
+          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin*') }}
 
       - name: Install sqlx
         uses: actions-rs/cargo@v1
