@@ -1,9 +1,36 @@
 use std::net::TcpListener;
 
+use once_cell::sync::Lazy;
 use reqwest::{header::CONTENT_TYPE, StatusCode};
+use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
+use tracing::Subscriber;
 use uuid::Uuid;
-use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::{
+    configuration::{get_configuration, DatabaseSettings},
+    telemetry::{get_subscriber, init_subscriber},
+};
+
+static TRACING: Lazy<()> = Lazy::new(|| {
+    // Set up test logging
+    let default_filter = "info";
+    let subscriber_name = "test";
+    // TODO box the sink and create the subscriber only once
+    let subscriber = if std::env::var("TEST_LOG").is_ok() {
+        Box::new(get_subscriber(
+            subscriber_name,
+            default_filter,
+            std::io::stdout,
+        )) as Box<dyn Subscriber + Send + Sync>
+    } else {
+        Box::new(get_subscriber(
+            subscriber_name,
+            default_filter,
+            std::io::sink,
+        )) as Box<dyn Subscriber + Send + Sync>
+    };
+    init_subscriber(subscriber);
+});
 
 pub struct TestApp {
     pub address: String,
@@ -11,6 +38,8 @@ pub struct TestApp {
 }
 
 async fn spawn_app() -> TestApp {
+    // Force logging initialization for testing
+    Lazy::force(&TRACING);
     let address = "127.0.0.1";
     let listener = TcpListener::bind((address, 0)).expect("listener should have bound");
     let port = listener.local_addr().unwrap().port();
@@ -31,16 +60,17 @@ async fn spawn_app() -> TestApp {
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     // Create database
-    let mut connection = PgConnection::connect(&config.connection_string_without_db())
-        .await
-        .expect("should have connected to postgres");
+    let mut connection =
+        PgConnection::connect(config.connection_string_without_db().expose_secret())
+            .await
+            .expect("should have connected to postgres");
     connection
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("should have created database");
 
     // Run migration
-    let connection_pool = PgPool::connect(&config.connection_string())
+    let connection_pool = PgPool::connect(config.connection_string().expose_secret())
         .await
         .expect("should have created database pool");
     sqlx::migrate!("./migrations")
