@@ -2,6 +2,7 @@ use std::net::TcpListener;
 
 use once_cell::sync::Lazy;
 use reqwest::{header::CONTENT_TYPE, StatusCode};
+use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use tracing::Subscriber;
 use uuid::Uuid;
@@ -59,16 +60,17 @@ async fn spawn_app() -> TestApp {
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     // Create database
-    let mut connection = PgConnection::connect(&config.connection_string_without_db())
-        .await
-        .expect("should have connected to postgres");
+    let mut connection =
+        PgConnection::connect(config.connection_string_without_db().expose_secret())
+            .await
+            .expect("should have connected to postgres");
     connection
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("should have created database");
 
     // Run migration
-    let connection_pool = PgPool::connect(&config.connection_string())
+    let connection_pool = PgPool::connect(config.connection_string().expose_secret())
         .await
         .expect("should have created database pool");
     sqlx::migrate!("./migrations")
