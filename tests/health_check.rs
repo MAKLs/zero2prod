@@ -1,9 +1,19 @@
 use std::net::TcpListener;
 
+use once_cell::sync::Lazy;
 use reqwest::{header::CONTENT_TYPE, StatusCode};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
-use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::{
+    configuration::{get_configuration, DatabaseSettings},
+    telemetry::{get_subscriber, init_subscriber},
+};
+
+static TRACING: Lazy<()> = Lazy::new(|| {
+    // Set up test loggin
+    let subscriber = get_subscriber("test", "debug");
+    init_subscriber(subscriber);
+});
 
 pub struct TestApp {
     pub address: String,
@@ -11,6 +21,8 @@ pub struct TestApp {
 }
 
 async fn spawn_app() -> TestApp {
+    // Force logging initialization for testing
+    Lazy::force(&TRACING);
     let address = "127.0.0.1";
     let listener = TcpListener::bind((address, 0)).expect("listener should have bound");
     let port = listener.local_addr().unwrap().port();
