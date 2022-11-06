@@ -3,6 +3,7 @@ use std::net::TcpListener;
 use once_cell::sync::Lazy;
 use reqwest::{header::CONTENT_TYPE, StatusCode};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
+use tracing::Subscriber;
 use uuid::Uuid;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
@@ -10,8 +11,23 @@ use zero2prod::{
 };
 
 static TRACING: Lazy<()> = Lazy::new(|| {
-    // Set up test loggin
-    let subscriber = get_subscriber("test", "debug");
+    // Set up test logging
+    let default_filter = "info";
+    let subscriber_name = "test";
+    // TODO box the sink and create the subscriber only once
+    let subscriber = if std::env::var("TEST_LOG").is_ok() {
+        Box::new(get_subscriber(
+            subscriber_name,
+            default_filter,
+            std::io::stdout,
+        )) as Box<dyn Subscriber + Send + Sync>
+    } else {
+        Box::new(get_subscriber(
+            subscriber_name,
+            default_filter,
+            std::io::sink,
+        )) as Box<dyn Subscriber + Send + Sync>
+    };
     init_subscriber(subscriber);
 });
 

@@ -8,7 +8,7 @@ use zero2prod::{
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let subscriber = get_subscriber(env!("CARGO_BIN_NAME"), "info");
+    let subscriber = get_subscriber(env!("CARGO_BIN_NAME"), "info", std::io::stdout);
     init_subscriber(subscriber);
     let configuration = get_configuration().expect("failed to read configuration");
     let pool = PgPool::connect(&configuration.database.connection_string())
